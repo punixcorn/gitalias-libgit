@@ -1,2 +1,17 @@
+# Fragment specific to C++ source files
 CompileFlags:
-	Add: [ -std=c++2a ]
+  Add: [ -std=c++26 ]
+
+---
+
+If:
+  PathMatch: [.*\.c, .*\.h]
+CompileFlags:
+  Add: [ -std=c23 ]
+
+---
+
+If:
+  PathMatch: [.*\.h]
+CompileFlags:
+  Add: [-xc]

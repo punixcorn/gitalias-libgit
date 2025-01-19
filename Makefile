@@ -4,6 +4,10 @@ STD=-std=c++2a
 FLAGS=-g --all-warnings -lgit2 -lfmt
 EMPTY=
 
+cmake:
+	cmake -S . -B build 
+	cmake --build build/
+
 main: $(FILE:.cpp=.o)
 	@mkdir -p bin
 	$(CC) main.o ${STD} ${FLAGS} -o bin/main

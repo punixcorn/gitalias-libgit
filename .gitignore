@@ -4,3 +4,4 @@ main.o
 dev
 test
 .ccls-cache
+build
