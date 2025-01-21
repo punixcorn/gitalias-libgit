@@ -12,7 +12,7 @@ FetchContent_MakeAvailable(ftxui)
 project(ftxui-starter LANGUAGES CXX VERSION 1.0.0)
 add_executable(ftxui-starter main.cpp)
 set_target_properties(ftxui-starter PROPERTIES
-  CXX_STANDARD 26
+  CXX_STANDARD 23
   CXX_STANDARD_REQUIRED ON 
 )
 
