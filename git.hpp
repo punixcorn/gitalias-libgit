@@ -26,7 +26,8 @@
 #include <string>
 #include <type_traits>
 #include <vector>
-
+#define PRIVATE_KEY_PATH "/home/potato/.ssh/id_ed25519"
+#define PUBLIC_KEY_PATH "/home/potato/.ssh/id_ed25519.pub"
 namespace gitalias {
 namespace libgit {
 
@@ -38,21 +39,33 @@ concept isStr = requires(T a) {
     { a + "string" } -> std::same_as<std::string>;
 };
 
+/*
+ * Handles any error git throws,
+ * Prints out the *error* and exits
+ */
 inline void handle_git_err() {
     throw std::runtime_error(
         std::format("[ERR] gitalias2 : {}", git_error_last()->message));
 }
 
+/*
+ * Clone and online repo `url` to `path`
+ * returns a git_repository * to the cloned repo
+ */
 template <typename T>
     requires isStr<T>
-inline void clone_repository(git_repository **repo, T url, T path) {
-    int e = git_clone(repo, url.c_str(), path.c_str(), NULL);
+git_repository *clone_repository(T url, T path) {
+    git_repository *cloned_repo = nullptr;
+    int e = git_clone(&cloned_repo, url.c_str(), path.c_str(), NULL);
     if (e > 0) {
         handle_git_err();
     }
+    return cloned_repo;
 };
 
-// Function to get the current branch name
+/*
+ * Get the current branch name you're on
+ */
 inline void get_current_branch_name(git_repository *repo,
                                     std::string &branch_name) {
     int error = 0;
@@ -75,7 +88,10 @@ inline void get_current_branch_name(git_repository *repo,
     git_reference_free(head);
 }
 
-// opens a repository
+/*
+ * opens a repository at `path`
+ * by default `path` is set to current directory
+ */
 template <typename T = std::string>
     requires isStr<T>
 inline void open_repository(git_repository **repo, T path = ".") {
@@ -100,7 +116,9 @@ inline void open_repository(git_repository **repo, T path = ".") {
     else
         handle_git_err();
 }
-
+/*
+ * Struct for holding information used for making commits
+ */
 struct commit_t {
     commit_t(git_repository *repo) {
         git_signature *_sig = nullptr;
@@ -123,7 +141,9 @@ struct commit_t {
     std::string encoding = "UTF-8";
     git_signature *sig;
 };
-
+/*
+ * Create a commit in `repo` using `c` data
+ */
 inline void create_git_commit(git_repository *repo, commit_t *c) {
     fmt::println("creating a commit...");
     git_oid tree_id, parent_id, commit_id;
@@ -176,17 +196,24 @@ inline void create_git_commit(git_repository *repo, commit_t *c) {
     }
 }
 
-// checks if a git repository exists in current dir
-inline auto is_git_repository(git_repository **repo) -> bool {
+/*
+ * Checks if a git repository exists at `path`
+ * by default, `path` is the current directory
+ */
+inline auto is_git_repository(git_repository **repo, std::string path = ".")
+    -> bool {
     fmt::println("checking if a repo exists...");
-    int e =
-        git_repository_open_ext(repo, ".", GIT_REPOSITORY_OPEN_NO_SEARCH, NULL);
+    int e = git_repository_open_ext(repo, path.c_str(),
+                                    GIT_REPOSITORY_OPEN_NO_SEARCH, NULL);
     if (e > 0) {
         return false;
     }
     return true;
 }
-
+/*
+ * Inits a local repository at `path`
+ * By default `path` is current directory
+ */
 inline void initRepository(const char *path = ".") {
     fmt::println("Initing a repo...");
     git_repository *repo = nullptr;
@@ -197,7 +224,15 @@ inline void initRepository(const char *path = ".") {
     }
     git_repository_free(repo);
 }
-
+/*
+ * Create a Branch in `repo` using the name `branch_name`
+ * From the branch name `start_point`
+ * This will checkout to the `branch_name` if `checkout = true`
+ * By default `checkout = false`
+ *
+ *  Example
+ * `create_branch(repo,"new_branch","main")`
+ */
 inline void create_branch(git_repository *repo, const std::string &branch_name,
                           const std::string &start_point,
                           bool checkout = false) {
@@ -239,7 +274,9 @@ inline void create_branch(git_repository *repo, const std::string &branch_name,
     git_reference_free(new_branch);
     git_object_free(target);
 }
-
+/*
+ * Add `files` to `repo` to be commited
+ */
 inline void add_files_to_index(git_repository *repo,
                                const std::vector<std::string> &files) {
     fmt::println("Adding files to repo...");
@@ -265,16 +302,21 @@ inline void add_files_to_index(git_repository *repo,
     git_index_free(index);
 }
 
-// Callback for SSH key authentication
+/*
+ * Callback for SSH key authentication
+ */
 inline int credential_cb(git_cred **out, const char *url,
                          const char *username_from_url,
                          unsigned int allowed_types, void *payload) {
-    const char *private_key_path = "/home/potato/.ssh/id_ed25519";
-    const char *public_key_path = "/home/potato/.ssh/id_ed25519.pub";
+    const char *private_key_path =
+        PRIVATE_KEY_PATH;  //"/home/potato/.ssh/id_ed25519";
+    const char *public_key_path =
+        PUBLIC_KEY_PATH;  // "/home/potato/.ssh/id_ed25519.pub";
     const char *passphrase = "";
     return git_cred_ssh_key_new(out, username_from_url, public_key_path,
                                 private_key_path, passphrase);
 }
+
 inline bool checkForError(int e, const char *m) {
     if (e < 0) {
         std::cout << m << '\n';
@@ -359,6 +401,9 @@ inline void fast_forward_merge(git_repository *repo) {
     return;
 }
 
+/*
+ * Push local files to remote
+ */
 inline void push_to_remote(git_repository *repo, const char *remote_name,
                            const char *branch_name) {
     git_remote *remote = nullptr;
@@ -381,6 +426,10 @@ inline void push_to_remote(git_repository *repo, const char *remote_name,
 
     git_remote_free(remote);
 }
+
+/*
+ * Switch to branch `branch_name`
+ */
 inline void switch_branch(git_repository *repo, const char *branch_name) {
     fmt::println("Switching branch...");
 
@@ -425,6 +474,9 @@ inline void switch_branch(git_repository *repo, const char *branch_name) {
     git_reference_free(branch_ref);
 }
 
+/*
+ * Delete a branch `branch_name` in `repo`
+ */
 inline void delete_branch(git_repository *repo, const char *branch_name) {
     int error = 0;
     git_reference *branch_ref = NULL;
@@ -446,7 +498,9 @@ inline void delete_branch(git_repository *repo, const char *branch_name) {
     git_reference_free(branch_ref);
 }
 
-// Function to get all branch names
+/*
+ * Function to get all branch names in `repo`
+ */
 inline std::vector<std::string> get_git_branches(git_repository *repo) {
     std::vector<std::string> branch_names;
     git_branch_iterator *iter = nullptr;
@@ -470,6 +524,10 @@ inline std::vector<std::string> get_git_branches(git_repository *repo) {
     git_branch_iterator_free(iter);
     return branch_names;
 }
+
+/*
+ * Merge `source_branch` into `target_branch` in `repo`
+ */
 inline void merge_branches2(git_repository *repo, const char *target_branch,
                             const char *source_branch) {
     git_reference *target_ref = nullptr;
@@ -583,6 +641,9 @@ inline void merge_branches2(git_repository *repo, const char *target_branch,
     git_reference_free(source_ref);
 }
 
+/*
+ *
+ */
 inline void resolve_merge(git_repository *repo) {
     git_index *index = nullptr;
 
@@ -615,6 +676,9 @@ inline void resolve_merge(git_repository *repo) {
     git_index_free(index);
 }
 
+/*
+ * Commit a merger on `repo` with commit info `c` and a `message`
+ */
 inline void commit_merge4(git_repository *repo, commit_t *c,
                           const char *message) {
     git_index *index = nullptr;
@@ -684,6 +748,9 @@ inline void commit_merge4(git_repository *repo, commit_t *c,
     git_index_free(index);
 }
 
+/*
+ * Print git status , git status
+ */
 inline void print_git_status(git_repository *repo) {
     git_status_list *status = NULL;
     git_status_options status_opts = GIT_STATUS_OPTIONS_INIT;
@@ -736,6 +803,9 @@ inline void print_git_status(git_repository *repo) {
     git_status_list_free(status);
 }
 
+/*
+ * Print Git log, Same as git -l
+ */
 inline void print_git_log(git_repository *repo) {
     git_revwalk *walker = NULL;
     git_oid oid;
@@ -802,13 +872,22 @@ inline void print_git_log(git_repository *repo) {
     git_revwalk_free(walker);
 }
 
-inline void commit_message(commit_t *commit, std::string message) noexcept {
+/*
+ * set the message in `commit` with `message`
+ */
+inline void set_commit_message(commit_t *commit, std::string message) noexcept {
     fmt::println("setting message :{}", message);
     commit->message = message;
 }
 
-inline void main_thread(int &argc, std::vector<std::string> &vc);
+inline void init_repository(git_repository *repo) {
+    if (!is_git_repository(&repo)) {
+        initRepository();
+    }
+    open_repository(&repo);
+}
 
+#ifdef debug
 inline void main_thread(int &argc, std::vector<std::string> &vc) {
     git_repository *curr = nullptr;
 
@@ -820,7 +899,6 @@ inline void main_thread(int &argc, std::vector<std::string> &vc) {
     get_current_branch_name(curr, branch);
     commit_t commit(curr);
     commit_message(&commit, "fixes");
-#ifdef debug
     add_files_to_index(curr, vc);
     create_git_commit(curr, &commit);
     const auto pull_and_merge = [&]() { fast_forward_merge(curr); };
@@ -851,9 +929,9 @@ inline void main_thread(int &argc, std::vector<std::string> &vc) {
     };
     print_git_status(curr);
     print_git_log(curr);
-#endif
 
     git_repository_free(curr);
 }
+#endif
 }  // namespace libgit
 }  // namespace gitalias
