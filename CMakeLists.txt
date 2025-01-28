@@ -9,9 +9,9 @@ FetchContent_Declare(ftxui
 
 FetchContent_MakeAvailable(ftxui)
  
-project(ftxui-starter LANGUAGES CXX VERSION 1.0.0)
-add_executable(ftxui-starter main.cpp)
-set_target_properties(ftxui-starter PROPERTIES
+project(gitalias-libgit LANGUAGES CXX VERSION 1.0.0)
+add_executable(${PROJECT_NAME} main.cpp)
+set_target_properties(${PROJECT_NAME} PROPERTIES
   CXX_STANDARD 23
   CXX_STANDARD_REQUIRED ON 
 )
@@ -23,24 +23,28 @@ pkg_check_modules(LIBGIT2 REQUIRED libgit2)
 # libfmt
 find_library(boost_system boost_execption boost_program_options REQUIRED)
 find_package(fmt)
+find_library(LIBGIT2_LIBRARY git2 REQUIRED)
+find_path(LIBGIT2_INCLUDE_DIR git2.h REQUIRED)
 
-if(LIBGIT2_FOUND)
-  message(STATUS "Found libgit2: ${LIBGIT2_VERSION}")
+if(LIBGIT2_LIBRARY AND LIBGIT2_INCLUDE_DIR)
+  message(STATUS "Found libgit2 at ${LIBGIT2_LIBRARY}")
+  message(STATUS "Include directory: ${LIBGIT2_INCLUDE_DIR}")
 else()
   message(FATAL_ERROR "libgit2 not found. Install it via your package manager or source.")
 endif()
 
-target_link_libraries(ftxui-starter
+
+target_link_libraries(${PROJECT_NAME}
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
-  PRIVATE ftxui::component 
-  PRIVATE ${LIBGIT2_LIBRARIES}    # Link libgit2
-  PRIVATE boost_program_options boost_system boost_exception fmt::fmt-header-only
+  PRIVATE ftxui::component  
+  PRIVATE ${LIBGIT2_LIBRARY}  
+  PRIVATE boost_program_options boost_system boost_exception fmt::fmt-header-only 
 )
 # Include directories for libgit2
-target_include_directories(ftxui-starter PRIVATE ${LIBGIT2_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PRIVATE ${LIBGIT2_INCLUDE_DIR})
 
 # Add any additional options or flags for libgit2
-target_compile_options(ftxui-starter PRIVATE ${LIBGIT2_CFLAGS_OTHER})
+target_compile_options(${PROJECT_NAME} PRIVATE ${LIBGIT2_CFLAGS_OTHER})
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
